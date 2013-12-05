@@ -27,7 +27,8 @@ endif
 if ARCH_ARM
 minerd_SOURCES += sha2-arm.S scrypt-arm.S
 endif
+minerd_SOURCES += yacoin.c scrypt-jane/scrypt-jane.c
 minerd_LDFLAGS	= $(PTHREAD_FLAGS)
 minerd_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@ @WS2_LIBS@
-minerd_CPPFLAGS = @LIBCURL_CPPFLAGS@
+minerd_CPPFLAGS = @LIBCURL_CPPFLAGS@ -DSCRYPT_KECCAK512 -DSCRYPT_CHACHA -DSCRYPT_CHOOSE_COMPILETIME
 

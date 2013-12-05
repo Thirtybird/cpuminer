@@ -37,6 +37,7 @@
 #include <curl/curl.h>
 #include "compat.h"
 #include "miner.h"
+#include "yacoin.h"
 
 #define PROGRAM_NAME		"minerd"
 #define DEF_RPC_URL		"http://127.0.0.1:9332/"
@@ -100,13 +101,16 @@ struct workio_cmd {
 	} u;
 };
 
+
 enum sha256_algos {
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
+	ALGO_YACOIN,		/* scrypt(N,1,1) */
 	ALGO_SHA256D,		/* SHA-256d */
 };
 
 static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
+	[ALGO_YACOIN]		= "yacoin",
 	[ALGO_SHA256D]		= "sha256d",
 };
 
@@ -166,6 +170,7 @@ Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
+                          yacoin    scrypt N keccak512/chacha20/8\n\
                           sha256d   SHA-256d\n\
   -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
@@ -755,6 +760,11 @@ static void *miner_thread(void *userdata)
 		switch (opt_algo) {
 		case ALGO_SCRYPT:
 			rc = scanhash_scrypt(thr_id, work.data, scratchbuf, work.target,
+			                     max_nonce, &hashes_done);
+			break;
+
+		case ALGO_YACOIN:
+			rc = scanhash_yacoin(thr_id, work.data, work.target,
 			                     max_nonce, &hashes_done);
 			break;
 
