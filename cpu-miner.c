@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
@@ -37,7 +37,6 @@
 #include <curl/curl.h>
 #include "compat.h"
 #include "miner.h"
-#include "yacoin.h"
 
 #define PROGRAM_NAME		"minerd"
 #define DEF_RPC_URL		"http://127.0.0.1:9332/"
@@ -101,16 +100,15 @@ struct workio_cmd {
 	} u;
 };
 
-
 enum sha256_algos {
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
-	ALGO_YACOIN,		/* scrypt(N,1,1) */
+	ALGO_SCRYPT_JANE,	/* scrypt-jane with n-factor */
 	ALGO_SHA256D,		/* SHA-256d */
 };
 
 static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
-	[ALGO_YACOIN]		= "yacoin",
+	[ALGO_SCRYPT_JANE]	= "scrypt-jane",
 	[ALGO_SHA256D]		= "sha256d",
 };
 
@@ -169,9 +167,9 @@ static char const usage[] = "\
 Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
-                          scrypt    scrypt(1024, 1, 1) (default)\n\
-                          yacoin    scrypt N keccak512/chacha20/8\n\
-                          sha256d   SHA-256d\n\
+                          scrypt       scrypt(1024, 1, 1) (default)\n\
+                          scrypt-jane  scrypt-jane\n\
+                          sha256d      SHA-256d\n\
   -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -661,7 +659,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		free(xnonce2str);
 	}
 
-	if (opt_algo == ALGO_SCRYPT)
+	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT_JANE)
 		diff_to_target(work->target, sctx->job.diff / 65536.0);
 	else
 		diff_to_target(work->target, sctx->job.diff);
@@ -695,7 +693,7 @@ static void *miner_thread(void *userdata)
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
 	
-	if (opt_algo == ALGO_SCRYPT)
+	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT)
 	{
 		scratchbuf = scrypt_buffer_alloc();
 	}
@@ -747,7 +745,7 @@ static void *miner_thread(void *userdata)
 			      - time(NULL);
 		max64 *= thr_hashrates[thr_id];
 		if (max64 <= 0)
-			max64 = opt_algo == ALGO_SCRYPT ? 0xfffLL : 0x1fffffLL;
+			max64 = (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT_JANE) ? 0xfffLL : 0x1fffffLL;
 		if (work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
@@ -763,8 +761,8 @@ static void *miner_thread(void *userdata)
 			                     max_nonce, &hashes_done);
 			break;
 
-		case ALGO_YACOIN:
-			rc = scanhash_yacoin(thr_id, work.data, work.target,
+		case ALGO_SCRYPT_JANE:
+			rc = scanhash_scrypt_jane(thr_id, work.data, work.target,
 			                     max_nonce, &hashes_done);
 			break;
 

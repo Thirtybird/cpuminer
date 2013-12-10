@@ -49,7 +49,7 @@ typedef uint64_t scrypt_mix_word_t;
 
 #if !defined(SCRYPT_CHOOSE_COMPILETIME)
 static scrypt_ROMixfn
-scrypt_getROMix(void) {
+scrypt_getROMix() {
 	size_t cpuflags = detect_cpu();
 
 #if defined(SCRYPT_SALSA64_AVX)
@@ -77,7 +77,7 @@ scrypt_getROMix(void) {
 
 #if defined(SCRYPT_TEST_SPEED)
 static size_t
-available_implementations(void) {
+available_implementations() {
 	size_t cpuflags = detect_cpu();
 	size_t flags = 0;
 
@@ -101,7 +101,7 @@ available_implementations(void) {
 #endif
 
 static int
-scrypt_test_mix(void) {
+scrypt_test_mix() {
 	static const uint8_t expected[16] = {
 		0xf8,0x92,0x9b,0xf8,0xcc,0x1d,0xce,0x2e,0x13,0x82,0xac,0x96,0xb2,0x6c,0xee,0x2c,
 	};

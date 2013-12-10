@@ -17,7 +17,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdbool.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <jansson.h>
 #include <curl/curl.h>

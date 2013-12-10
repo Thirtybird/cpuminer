@@ -1,4 +1,4 @@
-AC_INIT([cpuminer], [2.3.2])
+AC_INIT([cpuminer], [2.3.1])
 
 AC_PREREQ([2.59c])
 AC_CANONICAL_SYSTEM
@@ -42,11 +42,13 @@ case $target in
   i*86-*-*)
     have_x86=true
     ;;
-  x86_64-*-*|amd64-*-*)
+  x86_64-*-*)
+    have_x86=true
     have_x86_64=true
     ;;
-  arm*-*-*)
-    have_arm=true
+  amd64-*-*)
+    have_x86=true
+    have_x86_64=true
     ;;
 esac
 
@@ -61,7 +63,7 @@ case $target in
     ;;
 esac
 
-if test x$have_x86 = xtrue -o x$have_x86_64 = xtrue
+if test x$have_x86 = xtrue
 then
   AC_MSG_CHECKING(whether we can compile AVX code)
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[asm ("vmovdqa %ymm0, %ymm1");])],
@@ -100,7 +102,6 @@ AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
 AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
 AM_CONDITIONAL([ARCH_x86], [test x$have_x86 = xtrue])
 AM_CONDITIONAL([ARCH_x86_64], [test x$have_x86_64 = xtrue])
-AM_CONDITIONAL([ARCH_ARM], [test x$have_arm = xtrue])
 
 if test x$request_jansson = xtrue
 then

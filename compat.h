@@ -5,7 +5,10 @@
 
 #include <windows.h>
 
-#define sleep(secs) Sleep((secs) * 1000)
+static inline void sleep(int secs)
+{
+	Sleep(secs * 1000);
+}
 
 enum {
 	PRIO_PROCESS		= 0,

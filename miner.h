@@ -4,7 +4,7 @@
 #include "cpuminer-config.h"
 
 #include <stdbool.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include <jansson.h>
@@ -155,10 +155,10 @@ extern unsigned char *scrypt_buffer_alloc();
 extern int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done);
-extern int scanhash_yacoin(int thr_id, uint32_t *pdata,
+
+extern int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done);
-
 struct thr_info {
 	int		id;
 	pthread_t	pth;

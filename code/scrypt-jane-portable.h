@@ -65,8 +65,6 @@
 	#define ROTR64(a,b) _rotr64(a,b)
 	#undef NOINLINE
 	#define NOINLINE __declspec(noinline)
-	#undef NORETURN
-	#define NORETURN
 	#undef INLINE
 	#define INLINE __forceinline
 	#undef FASTCALL
@@ -98,12 +96,6 @@
 		#define NOINLINE __attribute__((noinline))
 	#else
 		#define NOINLINE
-	#endif
-	#undef NORETURN
-	#if (COMPILER_GCC >= 30000)
-		#define NORETURN __attribute__((noreturn))
-	#else
-		#define NORETURN
 	#endif
 	#undef INLINE
 	#if (COMPILER_GCC >= 30000)
@@ -255,7 +247,7 @@ scrypt_verify(const uint8_t *x, const uint8_t *y, size_t len) {
 	return (1 & ((differentbits - 1) >> 8));
 }
 
-static void
+void
 scrypt_ensure_zero(void *p, size_t len) {
 #if ((defined(CPU_X86) || defined(CPU_X86_64)) && defined(COMPILER_MSVC))
 		__stosb((unsigned char *)p, 0, len);
@@ -287,6 +279,3 @@ scrypt_ensure_zero(void *p, size_t len) {
 
 #include "scrypt-jane-portable-x86.h"
 
-#if !defined(asm_calling_convention)
-#define asm_calling_convention
-#endif
