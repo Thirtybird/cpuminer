@@ -1108,7 +1108,7 @@ static void parse_arg (int key, char *arg)
 			if (strncasecmp(arg, "http://", 7) && strncasecmp(arg, "https://", 8) &&
 					strncasecmp(arg, "stratum+tcp://", 14))
 			{
-				fprintf(stderr, "Invalid protocol specified - need http://, https://, or stratum+tcp://.\nGot %s",arg);
+				fprintf(stderr, "Invalid protocol specified - need http://, https://, or stratum+tcp://.\nGot %s\n",arg);
 				show_usage_and_exit(1);
 			}
 			free(rpc_url);
