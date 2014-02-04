@@ -517,8 +517,17 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 {
 	int i;
 	bool rc = true;
+
+//[2014-02-04 16:20:32] hash[7]:55979  target[7]:65535
+//[2014-02-04 16:20:32] hash[7]:abda0000010000000cfa28010005ee7688fa2801d58ce676ab1259500005ee76  target[7]:ffff000033663730000000000000000000000000000000000000000000000000
+//[2014-02-04 16:21:03] hash[7]:39959  target[7]:65535
+//[2014-02-04 16:21:03] hash[7]:179c0000010000000cfa28010005ee7688fa2801d58ce676ab1259500005ee76  target[7]:ffff000033663732000000000000000000000000000000000000000000000000
 	
 	for (i = 7; i >= 0; i--) {
+		applog (LOG_NOTICE,"hash[%d]:%zu  target[%d]:%zu",i,hash[i],i,target[i]);
+		//bin2hex(value,length);
+		//(const unsigned char *)(&ntime)
+		applog (LOG_NOTICE,"hash[%d]:%s  target[%d]:%s",i,bin2hex((const unsigned char *)(&hash[i]),32),i,bin2hex((const unsigned char *)(&target[i]),32));
 		if (hash[i] > target[i]) {
 			rc = false;
 			break;

@@ -445,6 +445,84 @@ static void share_result(int result, const char *reason)
 		applog(LOG_DEBUG, "DEBUG: reject reason: %s", reason);
 }
 
+
+
+static uint64_t share_diff(const struct work *work)
+{
+	double previous_diff;
+
+	uint32_t *data32 = (uint32_t *)(work->data);
+	unsigned char swap[128];
+	uint32_t *swap32 = (uint32_t *)swap;
+	unsigned char hash1[32];
+	uint32_t *hash32 = (uint32_t *)(work->data);
+	uint32_t difficulty = 0;
+	uint32_t diffbytes = 0;
+	uint32_t diffvalue = 0;
+	uint32_t diffcmp[8];
+	int diffshift = 0;
+	int i;
+
+	difficulty = swab32(*((uint32_t *)(work->data + 72)));
+
+	diffbytes = ((difficulty >> 24) & 0xff) - 3;
+	diffvalue = difficulty & 0x00ffffff;
+
+	diffshift = (diffbytes % 4) * 8;
+	if (diffshift == 0) {
+		diffshift = 32;
+		diffbytes--;
+	}
+
+	memset(diffcmp, 0, 32);
+	diffcmp[(diffbytes >> 2) + 1] = diffvalue >> (32 - diffshift);
+	diffcmp[diffbytes >> 2] = diffvalue << diffshift;
+
+
+
+//	previous_diff = current_diff;
+//	diff64 = diffone / d64;
+//	suffix_string(diff64, block_diff, 0);
+//	current_diff = (double)diffone / (double)d64;
+//	suffix_string (previous_diff, cprev_diff, 0);
+
+//	if ((!opt_quiet) || (unlikely(strcmp(block_diff,cprev_diff) != 0)))
+//		applog(LOG_NOTICE, "Difficulty found %s", block_diff);
+
+	return diffvalue;
+
+
+/*
+	swab256(rhash, work->xnonce2);
+	memcpy(rhash, work->xnonce2,32);
+	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT_JANE)
+		data64 = (uint64_t *)(rhash + 2);
+	else
+		data64 = (uint64_t *)(rhash + 4);
+	d64 = be64toh(*data64);
+	if (unlikely(!d64))
+		d64 = 1;
+	ret = diffone / d64;
+
+	pthread_mutex_lock(&g_work_lock);
+
+	if (unlikely(ret > best_diff)) {
+		new_best = true;
+		best_diff = ret;
+		suffix_string(best_diff, best_share, 0);
+	}
+	if (unlikely(ret > work->pool->best_diff))
+		work->pool->best_diff = ret;
+	pthread_mutex_unlock(&g_work_lock);
+
+	if (unlikely(new_best))
+		applog(LOG_INFO, "New best share: %s", best_share);
+	return ret;
+*/
+
+}
+
+
 static bool submit_upstream_work(CURL *curl, struct work *work)
 {
 	char *str = NULL;
@@ -459,6 +537,12 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 			applog(LOG_DEBUG, "DEBUG: stale work detected, discarding");
 		return true;
 	}
+
+	// We still have the work structure here, and we're about to submit a share - good place for checking things?
+	char sdiff[16];
+	uint64_t sharediff =share_diff(work);
+	suffix_string(sharediff,sdiff,0);
+	applog(LOG_NOTICE,"Share Diff: %s",sdiff);
 
 	if (have_stratum) {
 		uint32_t ntime, nonce;

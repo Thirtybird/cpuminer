@@ -227,9 +227,9 @@ int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
 	uint32_t max_nonce, unsigned long *hashes_done)
 {
 	uint32_t data[20], hash[8], target_swap[8];
-        volatile unsigned char *hashc = (unsigned char *) hash;
-        volatile unsigned char *datac = (unsigned char *) data;
-        volatile unsigned char *pdatac = (unsigned char *) pdata;
+	volatile unsigned char *hashc = (unsigned char *) hash;
+	volatile unsigned char *datac = (unsigned char *) data;
+	volatile unsigned char *pdatac = (unsigned char *) pdata;
 	uint32_t n = pdata[19] - 1;
 	scrypt_aligned_alloc YX, V;
 	uint8_t *X, *Y;
@@ -276,27 +276,34 @@ int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
                        (unsigned char *)data, 80, 
                        N, (unsigned char *)hash, 32, X, Y, V.ptr);
 
-		if (hashc[31] == 0 && hashc[30] == 0) {
-/*
-                    for(int z=7;z>=0;z--)
-                       fprintf(stderr, "%08x ", hash[z]);
-                    fprintf(stderr, "\n");
+//		char t_hash[32];
+//		char t_temp[8];
+//		strcpy (t_hash,"");
+//		for (i =31 ; i >= 0; i--)
+//		{
+//			sprintf (t_temp,(unsigned char *)hashc[i]);
+//			strcat (t_hash,t_temp);
+//		}
+	
+		applog(LOG_NOTICE,"hash backwards: %s",t_hash);
 
-                    for(int z=7;z>=0;z--)
-                       fprintf(stderr, "%08x ", ptarget[z]);
-                    fprintf(stderr, "\n");
-*/
-                    if(fulltest(hash, ptarget)) {
-			*hashes_done = n - pdata[19] + 1;
-			pdatac[76] = datac[79];
-                        pdatac[77] = datac[78];
-                        pdatac[78] = datac[77];
-                        pdatac[79] = datac[76];
+//		if (hashc[31] == 0 && hashc[30] == 0) {
+//		force a check more often for testing
+		if (hashc[31] == 0) {
+			if(fulltest(hash, ptarget)) {
+				*hashes_done = n - pdata[19] + 1;
+				pdatac[76] = datac[79];
+				pdatac[77] = datac[78];
+				pdatac[78] = datac[77];
+				pdatac[79] = datac[76];
 			
-			scrypt_free(&V);
-			scrypt_free(&YX);
-			return 1;
-                   }
+				scrypt_free(&V);
+				scrypt_free(&YX);
+				return 1;
+			} else {
+				// This would correlate to a HW error
+				applog(LOG_NOTICE,"Hash failed fulltest, HW++");
+			}
 		}
 	} while (n < max_nonce && !work_restart[thr_id].restart);
 	
