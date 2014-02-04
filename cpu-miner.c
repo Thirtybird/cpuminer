@@ -369,7 +369,8 @@ static void set_blockdiff(const struct work *work)
 	suffix_string(diff64, block_diff, 0);
 	current_diff = (double)diffone / (double)d64;
 	suffix_string (previous_diff, cprev_diff, 0);
-	if (unlikely(strcmp(block_diff,cprev_diff) != 0))
+
+	if ((!opt_quiet) || (unlikely(strcmp(block_diff,cprev_diff) != 0)))
 		applog(LOG_NOTICE, "Network diff set to %s", block_diff);
 }
 
