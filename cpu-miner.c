@@ -326,8 +326,9 @@ static void suffix_string(uint64_t val, char *buf, int sigdigits)
 
 static void set_blockdiff(const struct work *work)
 {
-	return;
-	applog(LOG_NOTICE, "set_blockdiff");
+	//applog(LOG_NOTICE, "set_blockdiff");
+	uint32_t nbit = work->data[18];
+
 	uint64_t *data64, d64, diff64;
 	double previous_diff;
 	uint32_t diffhash[8];
@@ -338,7 +339,7 @@ static void set_blockdiff(const struct work *work)
 	int diffshift;
 	char cprev_diff[8];
 
-	difficulty = swab32(*((uint32_t *)(work->data + 72)));
+	difficulty = swab32(nbit);
 
 	diffbytes = ((difficulty >> 24) & 0xff) - 3;
 	diffvalue = difficulty & 0x00ffffff;
@@ -369,7 +370,7 @@ static void set_blockdiff(const struct work *work)
 	current_diff = (double)diffone / (double)d64;
 	suffix_string (previous_diff, cprev_diff, 0);
 	if (unlikely(strcmp(block_diff,cprev_diff) != 0))
-		applog(LOG_NOTICE, "Network diff set to %f", current_diff);
+		applog(LOG_NOTICE, "Network diff set to %s", block_diff);
 }
 
 static bool jobj_binary(const json_t *obj, const char *key,

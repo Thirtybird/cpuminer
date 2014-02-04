@@ -1169,6 +1169,9 @@ bool stratum_handle_method(struct stratum_ctx *sctx, const char *s)
 	id = json_object_get(val, "id");
 	params = json_object_get(val, "params");
 
+//	if (opt_debug)
+//		applog(LOG_NOTICE,"stratum handle method: %s (%s)",method,s);
+
 	if (!strcasecmp(method, "mining.notify")) {
 		ret = stratum_notify(sctx, params);
 		goto out;
