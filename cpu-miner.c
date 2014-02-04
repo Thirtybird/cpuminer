@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
+#include <math.h>
 #ifdef WIN32
 #include <windows.h>
 #else
@@ -145,6 +146,16 @@ int stratum_thr_id = -1;
 struct work_restart *work_restart = NULL;
 static struct stratum_ctx stratum;
 
+unsigned int found_blocks = 0;
+double prev_target_diff = 0;
+static char block_diff[8];
+double current_diff = 0xFFFFFFFFFFFFFFFFULL;
+static const uint64_t diffone = 0xFFFF000000000000ull;
+
+static char best_share[8] = "0";
+uint64_t best_diff = 0;
+
+
 pthread_mutex_t applog_lock;
 pthread_mutex_t stats_lock;
 
@@ -256,6 +267,111 @@ static struct work g_work;
 static time_t g_work_time;
 static pthread_mutex_t g_work_lock;
 
+/* Convert a uint64_t value into a truncated string for displaying with its
+ * associated suitable for Mega, Giga etc. Buf array needs to be long enough */
+static void suffix_string(uint64_t val, char *buf, int sigdigits)
+{
+	const double  dkilo = 1000.0;
+	const uint64_t kilo = 1000ull;
+	const uint64_t mega = 1000000ull;
+	const uint64_t giga = 1000000000ull;
+	const uint64_t tera = 1000000000000ull;
+	const uint64_t peta = 1000000000000000ull;
+	const uint64_t exa  = 1000000000000000000ull;
+	char suffix[2] = "";
+	bool decimal = true;
+	double dval;
+
+	if (val >= exa) {
+		val /= peta;
+		dval = (double)val / dkilo;
+		sprintf(suffix, "E");
+	} else if (val >= peta) {
+		val /= tera;
+		dval = (double)val / dkilo;
+		sprintf(suffix, "P");
+	} else if (val >= tera) {
+		val /= giga;
+		dval = (double)val / dkilo;
+		sprintf(suffix, "T");
+	} else if (val >= giga) {
+		val /= mega;
+		dval = (double)val / dkilo;
+		sprintf(suffix, "G");
+	} else if (val >= mega) {
+		val /= kilo;
+		dval = (double)val / dkilo;
+		sprintf(suffix, "M");
+	} else if (val >= kilo) {
+		dval = (double)val / dkilo;
+		sprintf(suffix, "K");
+	} else {
+		dval = val;
+		decimal = false;
+	}
+
+	if (!sigdigits) {
+		if (decimal)
+			sprintf(buf, "%.3g%s", dval, suffix);
+		else
+			sprintf(buf, "%d%s", (unsigned int)dval, suffix);
+	} else {
+		/* Always show sigdigits + 1, padded on right with zeroes
+		 * followed by suffix */
+		int ndigits = sigdigits - 1 - (dval > 0.0 ? floor(log10(dval)) : 0);
+
+		sprintf(buf, "%*.*f%s", sigdigits + 1, ndigits, dval, suffix);
+	}
+}
+
+static void set_blockdiff(const struct work *work)
+{
+	return;
+	applog(LOG_NOTICE, "set_blockdiff");
+	uint64_t *data64, d64, diff64;
+	double previous_diff;
+	uint32_t diffhash[8];
+	uint32_t difficulty;
+	uint32_t diffbytes;
+	uint32_t diffvalue;
+	char rhash[32];
+	int diffshift;
+	char cprev_diff[8];
+
+	difficulty = swab32(*((uint32_t *)(work->data + 72)));
+
+	diffbytes = ((difficulty >> 24) & 0xff) - 3;
+	diffvalue = difficulty & 0x00ffffff;
+
+	diffshift = (diffbytes % 4) * 8;
+	if (diffshift == 0) {
+		diffshift = 32;
+		diffbytes--;
+	}
+
+	memset(diffhash, 0, 32);
+	diffbytes >>= 2;
+	if (unlikely(diffbytes > 6))
+		return;
+	diffhash[diffbytes + 1] = diffvalue >> (32 - diffshift);
+	diffhash[diffbytes] = diffvalue << diffshift;
+
+	swab256(rhash, diffhash);
+
+	data64 = (uint64_t *)(rhash + 2);
+	d64 = bswap_64(*data64);
+	if (unlikely(!d64))
+		d64 = 1;
+
+	previous_diff = current_diff;
+	diff64 = diffone / d64;
+	suffix_string(diff64, block_diff, 0);
+	current_diff = (double)diffone / (double)d64;
+	suffix_string (previous_diff, cprev_diff, 0);
+	if (unlikely(strcmp(block_diff,cprev_diff) != 0))
+		applog(LOG_NOTICE, "Network diff set to %f", current_diff);
+}
+
 static bool jobj_binary(const json_t *obj, const char *key,
 			void *buf, size_t buflen)
 {
@@ -315,8 +431,8 @@ static void share_result(int result, const char *reason)
 	result ? accepted_count++ : rejected_count++;
 	pthread_mutex_unlock(&stats_lock);
 	
-	sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s khash/s %s",
+	suffix_string (hashrate,s,0);
+	applog(LOG_INFO, "accepted: %lu/%lu (%.2f%%), %s hash/s %s",
 		   accepted_count,
 		   accepted_count + rejected_count,
 		   100. * accepted_count / (accepted_count + rejected_count),
@@ -584,6 +700,7 @@ static bool get_work(struct thr_info *thr, struct work *work)
 
 	/* copy returned work into storage provided by caller */
 	memcpy(work, work_heap, sizeof(*work));
+
 	free(work_heap);
 
 	return true;
@@ -621,6 +738,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 {
 	unsigned char merkle_root[64];
 	int i;
+	char s[8];
 
 	pthread_mutex_lock(&sctx->work_lock);
 
@@ -650,6 +768,8 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	work->data[20] = 0x80000000;
 	work->data[31] = 0x00000280;
 
+	set_blockdiff(work);
+
 	pthread_mutex_unlock(&sctx->work_lock);
 
 	if (opt_debug) {
@@ -663,6 +783,14 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		diff_to_target(work->target, sctx->job.diff / 65536.0);
 	else
 		diff_to_target(work->target, sctx->job.diff);
+	// This is target diff for the thread, not the network
+	if (sctx->job.diff != prev_target_diff)
+	{
+		prev_target_diff = sctx->job.diff;
+		suffix_string(sctx->job.diff,s,0);
+		applog(LOG_INFO, "Target diff changed to %s", s);
+	}
+	
 }
 
 static void *miner_thread(void *userdata)
@@ -724,6 +852,7 @@ static void *miner_thread(void *userdata)
 				}
 				time(&g_work_time);
 			}
+
 			if (have_stratum) {
 				pthread_mutex_unlock(&g_work_lock);
 				continue;
@@ -734,6 +863,7 @@ static void *miner_thread(void *userdata)
 			work.data[19] = 0xffffffffU / opt_n_threads * thr_id;
 		} else
 			work.data[19]++;
+
 		pthread_mutex_unlock(&g_work_lock);
 		work_restart[thr_id].restart = 0;
 		
@@ -786,9 +916,8 @@ static void *miner_thread(void *userdata)
 			pthread_mutex_unlock(&stats_lock);
 		}
 		if (!opt_quiet) {
-			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
-				1e-3 * thr_hashrates[thr_id]);
-			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
+			suffix_string (thr_hashrates[thr_id],s,0);
+			applog(LOG_INFO, "thread %d: %lu hashes, %s hash/s",
 				thr_id, hashes_done, s);
 		}
 		if (opt_benchmark && thr_id == opt_n_threads - 1) {
@@ -796,8 +925,8 @@ static void *miner_thread(void *userdata)
 			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
 			if (i == opt_n_threads) {
-				sprintf(s, hashrate >= 1e6 ? "%.0f" : "%.2f", 1e-3 * hashrate);
-				applog(LOG_INFO, "Total: %s khash/s", s);
+				suffix_string (thr_hashrates[thr_id],s,0);
+				applog(LOG_INFO, "Total: %s hash/s", s);
 			}
 		}
 

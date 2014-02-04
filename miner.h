@@ -122,6 +122,40 @@ static inline void le32enc(void *pp, uint32_t x)
 }
 #endif
 
+#if (!defined(WIN32) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))) \
+    || (defined(WIN32) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
+#ifndef bswap_16
+ #define bswap_16 __builtin_bswap16
+ #define bswap_32 __builtin_bswap32
+ #define bswap_64 __builtin_bswap64
+#endif
+#else
+#if HAVE_BYTESWAP_H
+#include <byteswap.h>
+#elif defined(USE_SYS_ENDIAN_H)
+#include <sys/endian.h>
+#elif defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define bswap_16 OSSwapInt16
+#define bswap_32 OSSwapInt32
+#define bswap_64 OSSwapInt64
+#else
+#define	bswap_16(value)  \
+ 	((((value) & 0xff) << 8) | ((value) >> 8))
+
+#define	bswap_32(value)	\
+ 	(((uint32_t)bswap_16((uint16_t)((value) & 0xffff)) << 16) | \
+ 	(uint32_t)bswap_16((uint16_t)((value) >> 16)))
+
+#define	bswap_64(value)	\
+ 	(((uint64_t)bswap_32((uint32_t)((value) & 0xffffffff)) \
+ 	    << 32) | \
+ 	(uint64_t)bswap_32((uint32_t)((value) >> 32)))
+#endif
+#endif /* !defined(__GLXBYTEORDER_H__) */
+
+
+
 #if JANSSON_MAJOR_VERSION >= 2
 #define JSON_LOADS(str, err_ptr) json_loads((str), 0, (err_ptr))
 #else
@@ -186,6 +220,9 @@ extern struct thr_info *thr_info;
 extern int longpoll_thr_id;
 extern int stratum_thr_id;
 extern struct work_restart *work_restart;
+extern unsigned int found_blocks;
+extern uint64_t best_diff;
+
 
 extern void applog(int prio, const char *fmt, ...);
 extern json_t *json_rpc_call(CURL *curl, const char *url, const char *userpass,
@@ -232,6 +269,22 @@ struct stratum_ctx {
 	struct stratum_job job;
 	pthread_mutex_t work_lock;
 };
+
+static inline void swab256(void *dest_p, const void *src_p)
+{
+	uint32_t *dest = dest_p;
+	const uint32_t *src = src_p;
+
+	dest[0] = swab32(src[7]);
+	dest[1] = swab32(src[6]);
+	dest[2] = swab32(src[5]);
+	dest[3] = swab32(src[4]);
+	dest[4] = swab32(src[3]);
+	dest[5] = swab32(src[2]);
+	dest[6] = swab32(src[1]);
+	dest[7] = swab32(src[0]);
+}
+
 
 bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);
 bool stratum_send_line(struct stratum_ctx *sctx, char *s);
