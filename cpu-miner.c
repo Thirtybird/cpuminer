@@ -702,6 +702,8 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	/* copy returned work into storage provided by caller */
 	memcpy(work, work_heap, sizeof(*work));
 
+	set_blockdiff(work);
+
 	free(work_heap);
 
 	return true;
@@ -784,12 +786,13 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		diff_to_target(work->target, sctx->job.diff / 65536.0);
 	else
 		diff_to_target(work->target, sctx->job.diff);
+
 	// This is target diff for the thread, not the network
 	if (sctx->job.diff != prev_target_diff)
 	{
 		prev_target_diff = sctx->job.diff;
 		suffix_string(sctx->job.diff,s,0);
-		applog(LOG_INFO, "Target diff changed to %s", s);
+		applog(LOG_NOTICE, "Target diff changed to %s", s);
 	}
 	
 }
