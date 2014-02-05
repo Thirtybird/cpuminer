@@ -520,7 +520,7 @@ static uint64_t share_diff(const struct work *work)
 	double d64, s64;
 	uint64_t ret;
 
-	applog(LOG_NOTICE,"share_diff work->hash: %zu",work->hash);
+	applog(LOG_NOTICE,"share_diff work->hash: %"PRIu32,work->hash);
 
 	unsigned char hash_swap[32];
 	char *hash_str;
@@ -1062,7 +1062,7 @@ static void *miner_thread(void *userdata)
 
 		if (rc)
 		{
-			applog (LOG_NOTICE,"work.hash:%zu",work.hash);
+			applog (LOG_NOTICE,"work.hash:%"PRIu32,work.hash);
 		}
 
 		/* record scanhash elapsed time */

@@ -555,7 +555,7 @@ bool fulltest(const uint32_t *hash, const uint32_t *target)
 
 /*
 	for (i = 7; i >= 0; i--) {
-		applog (LOG_NOTICE,"hash[%d]:%zu  target[%d]:%zu",i,hash[i],i,target[i]);
+		applog (LOG_NOTICE,"hash[%d]:%"PRIu32"  target[%d]:%"PRIu32,i,hash[i],i,target[i]);
 		applog (LOG_NOTICE,"hash[%d]:%s  target[%d]:%s",i,bin2hex((const unsigned char *)(&hash[i]),32),i,bin2hex((const unsigned char *)(&target[i]),32));
 	}
 */

@@ -293,14 +293,14 @@ int scanhash_scrypt_jane(int thr_id, struct work *work, uint32_t max_nonce, unsi
 				flip32(ohash, ohash);
 
 				for (i = 7; i >= 0; i--) {
-					applog (LOG_NOTICE,"hash[%d]:%zu  target[%d]:%zu",i,hash[i],i,ptarget[i]);
+					applog (LOG_NOTICE,"hash[%d]:%"PRIu32"  target[%d]:%"PRIu32,i,hash[i],i,ptarget[i]);
 				}
 
 //				for (i = 7; i >= 0; i--) {
-					applog (LOG_NOTICE,"ohash:%zu",ohash);
-					applog (LOG_NOTICE,"&ohash:%zu",&ohash);
-					applog (LOG_NOTICE,"*ohash:%zu",*ohash);
-					applog (LOG_NOTICE,"work->hash:%zu",work->hash);
+					applog (LOG_NOTICE,"ohash:%"PRIu32,ohash);
+					applog (LOG_NOTICE,"&ohash:%"PRIu32,&ohash);
+					applog (LOG_NOTICE,"*ohash:%"PRIu32,*ohash);
+					applog (LOG_NOTICE,"work->hash:%"PRIu32,work->hash);
 //				}
 
 
