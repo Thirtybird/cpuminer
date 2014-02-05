@@ -150,6 +150,7 @@ unsigned int found_blocks = 0;
 double prev_target_diff = 0;
 static char block_diff[8];
 double current_diff = 0xFFFFFFFFFFFFFFFFULL;
+bool need_set_blockdiff = false;
 static const uint64_t diffone = 0xFFFF000000000000ull;
 
 static char best_share[8] = "0";
@@ -252,15 +253,6 @@ static struct option const options[] = {
 	{ "userpass", 1, NULL, 'O' },
 	{ "version", 0, NULL, 'V' },
 	{ 0, 0, 0, 0 }
-};
-
-struct work {
-	uint32_t data[32];
-	uint32_t target[8];
-
-	char job_id[128];
-	size_t xnonce2_len;
-	unsigned char xnonce2[32];
 };
 
 static struct work g_work;
@@ -370,7 +362,7 @@ static void set_blockdiff(const struct work *work)
 	current_diff = (double)diffone / (double)d64;
 	suffix_string (previous_diff, cprev_diff, 0);
 
-	if ((!opt_quiet) || (unlikely(strcmp(block_diff,cprev_diff) != 0)))
+//	if ((!opt_quiet) || (unlikely(strcmp(block_diff,cprev_diff) != 0)))
 		applog(LOG_NOTICE, "Network diff set to %s", block_diff);
 }
 
@@ -447,7 +439,7 @@ static void share_result(int result, const char *reason)
 
 
 
-static uint64_t share_diff(const struct work *work)
+static uint64_t share_diff2(const struct work *work)
 {
 	double previous_diff;
 
@@ -491,37 +483,101 @@ static uint64_t share_diff(const struct work *work)
 
 	return diffvalue;
 
-
-/*
-	swab256(rhash, work->xnonce2);
-	memcpy(rhash, work->xnonce2,32);
-	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT_JANE)
-		data64 = (uint64_t *)(rhash + 2);
-	else
-		data64 = (uint64_t *)(rhash + 4);
-	d64 = be64toh(*data64);
-	if (unlikely(!d64))
-		d64 = 1;
-	ret = diffone / d64;
-
-	pthread_mutex_lock(&g_work_lock);
-
-	if (unlikely(ret > best_diff)) {
-		new_best = true;
-		best_diff = ret;
-		suffix_string(best_diff, best_share, 0);
-	}
-	if (unlikely(ret > work->pool->best_diff))
-		work->pool->best_diff = ret;
-	pthread_mutex_unlock(&g_work_lock);
-
-	if (unlikely(new_best))
-		applog(LOG_INFO, "New best share: %s", best_share);
-	return ret;
-*/
-
 }
 
+/* truediffone == 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+ * Generate a 256 bit binary LE target by cutting up diff into 64 bit sized
+ * portions or vice versa. */
+static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
+static const double bits192 = 6277101735386680763835789423207666416102355444464034512896.0;
+static const double bits128 = 340282366920938463463374607431768211456.0;
+static const double bits64 = 18446744073709551616.0;
+
+/* Converts a little endian 256 bit value to a double */
+static double le256todouble(const void *target)
+{
+	uint64_t *data64;
+	double dcut64;
+
+	data64 = (uint64_t *)(target + 24);
+	dcut64 = le64toh(*data64) * bits192;
+
+	data64 = (uint64_t *)(target + 16);
+	dcut64 += le64toh(*data64) * bits128;
+
+	data64 = (uint64_t *)(target + 8);
+	dcut64 += le64toh(*data64) * bits64;
+
+	data64 = (uint64_t *)(target);
+	dcut64 += le64toh(*data64);
+
+	return dcut64;
+}
+
+static uint64_t share_diff(const struct work *work)
+{
+	bool new_best = false;
+	double d64, s64;
+	uint64_t ret;
+
+	applog(LOG_NOTICE,"share_diff work->hash: %zu",work->hash);
+
+	unsigned char hash_swap[32];
+	char *hash_str;
+
+	swab256(hash_swap, work->hash);
+	applog(LOG_NOTICE,"hash_swap: %s",hash_swap);
+	hash_str = bin2hex(hash_swap, 32);
+	applog(LOG_NOTICE,"hashstr: %s",hash_str);
+
+
+	d64 = (double)65536 * truediffone;
+	s64 = le256todouble(work->hash);
+	applog(LOG_NOTICE,"d64:%f s64:%f",d64,s64);
+	if (unlikely(!s64))
+		s64 = 0;
+
+	applog(LOG_NOTICE,"d64:%f s64:%f",d64,s64);
+
+	ret = round(d64 / s64);
+
+	//cg_wlock(&control_lock);
+//	if (unlikely(ret > best_diff)) {
+//		new_best = true;
+		best_diff = ret;
+		suffix_string(ret, best_share, 0);
+//	}
+
+	//if (unlikely(ret > work->pool->best_diff))
+	//	work->pool->best_diff = ret;
+	//cg_wunlock(&control_lock);
+
+//	if (unlikely(new_best))
+		applog(LOG_INFO, "New best share: %s", best_share);
+
+	return ret;
+}
+
+static void show_hash(struct work *work, char *hashshow)
+{
+	unsigned char rhash[32];
+	char diffdisp[16];
+	unsigned long h32;
+	uint32_t *hash32;
+	int intdiff, ofs;
+
+//	swab256(rhash, work->hash);
+	for (ofs = 0; ofs <= 28; ofs ++) {
+		if (rhash[ofs])
+			break;
+	}
+	hash32 = (uint32_t *)(rhash + ofs);
+	h32 = be32toh(*hash32);
+//	intdiff = round(work->work_difficulty);
+//	suffix_string(work->share_diff, diffdisp, sizeof (diffdisp), 0);
+//	snprintf(hashshow, 64, "%08lx Diff %s/%d%s", h32, diffdisp, intdiff,
+//		 work->block? " BLOCK!" : "");
+}
 
 static bool submit_upstream_work(CURL *curl, struct work *work)
 {
@@ -539,7 +595,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	}
 
 	// We still have the work structure here, and we're about to submit a share - good place for checking things?
-	char sdiff[16];
+	char sdiff[8];
 	uint64_t sharediff =share_diff(work);
 	suffix_string(sharediff,sdiff,0);
 	applog(LOG_NOTICE,"Share Diff: %s",sdiff);
@@ -787,7 +843,11 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	/* copy returned work into storage provided by caller */
 	memcpy(work, work_heap, sizeof(*work));
 
-	set_blockdiff(work);
+	if (need_set_blockdiff)
+	{
+		need_set_blockdiff = false;
+		set_blockdiff(work);
+	}
 
 	free(work_heap);
 
@@ -856,9 +916,13 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	work->data[20] = 0x80000000;
 	work->data[31] = 0x00000280;
 
-	set_blockdiff(work);
-
 	pthread_mutex_unlock(&sctx->work_lock);
+
+	if (need_set_blockdiff)
+	{
+		need_set_blockdiff = false;
+		set_blockdiff(work);
+	}
 
 	if (opt_debug) {
 		char *xnonce2str = bin2hex(work->xnonce2, sctx->xnonce2_size);
@@ -981,8 +1045,9 @@ static void *miner_thread(void *userdata)
 			break;
 
 		case ALGO_SCRYPT_JANE:
-			rc = scanhash_scrypt_jane(thr_id, work.data, work.target,
-			                     max_nonce, &hashes_done);
+//			rc = scanhash_scrypt_jane(thr_id, work.data, work.target,
+//			                     max_nonce, &hashes_done);
+			rc = scanhash_scrypt_jane(thr_id, &work, max_nonce, &hashes_done);
 			break;
 
 		case ALGO_SHA256D:
@@ -993,6 +1058,11 @@ static void *miner_thread(void *userdata)
 		default:
 			/* should never happen */
 			goto out;
+		}
+
+		if (rc)
+		{
+			applog (LOG_NOTICE,"work.hash:%zu",work.hash);
 		}
 
 		/* record scanhash elapsed time */
@@ -1021,7 +1091,16 @@ static void *miner_thread(void *userdata)
 
 		/* if nonce found, submit work */
 		if (rc && !opt_benchmark && !submit_work(mythr, &work))
+		{
+			/* good place to check if we solved a block */
+			// if share difficulty > current_diff
+			//pthread_mutex_lock(&stats_lock);
+			//found_blocks++;
+			//pthread_mutex_unlock(&stats_lock);
+			//applog (LOG_NOTICE,"FOUND BLOCK");
+
 			break;
+		}
 	}
 
 out:
@@ -1093,6 +1172,7 @@ start:
 			soval = json_object_get(json_object_get(val, "result"), "submitold");
 			submit_old = soval ? json_is_true(soval) : false;
 			pthread_mutex_lock(&g_work_lock);
+			need_set_blockdiff = true;
 			if (work_decode(json_object_get(val, "result"), &g_work)) {
 				if (opt_debug)
 					applog(LOG_DEBUG, "DEBUG: got new work");
@@ -1199,6 +1279,7 @@ static void *stratum_thread(void *userdata)
 			time(&g_work_time);
 			pthread_mutex_unlock(&g_work_lock);
 			if (stratum.job.clean) {
+				need_set_blockdiff = true;
 				applog(LOG_INFO, "Stratum detected new block");
 				restart_threads();
 			}

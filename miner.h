@@ -154,11 +154,15 @@ static inline void le32enc(void *pp, uint32_t x)
 #endif
 #endif /* !defined(__GLXBYTEORDER_H__) */
 
+/* This assumes htobe32 is a macro in endian.h, and if it doesn't exist, then
+ * htobe64 also won't exist */
 #ifndef htobe32
 # if __BYTE_ORDER == __LITTLE_ENDIAN
 #  define htole16(x) (x)
 #  define htole32(x) (x)
+#  define htole64(x) (x)
 #  define le32toh(x) (x)
+#  define le64toh(x) (x)
 #  define be32toh(x) bswap_32(x)
 #  define be64toh(x) bswap_64(x)
 #  define htobe32(x) bswap_32(x)
@@ -167,6 +171,8 @@ static inline void le32enc(void *pp, uint32_t x)
 #  define htole16(x) bswap_16(x)
 #  define htole32(x) bswap_32(x)
 #  define le32toh(x) bswap_32(x)
+#  define le64toh(x) bswap_64(x)
+#  define htole64(x) bswap_64(x)
 #  define be32toh(x) (x)
 #  define be64toh(x) (x)
 #  define htobe32(x) (x)
@@ -203,6 +209,8 @@ void sha256_init_8way(uint32_t *state);
 void sha256_transform_8way(uint32_t *state, const uint32_t *block, int swap);
 #endif
 
+struct work;
+
 extern int scanhash_sha256d(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
 
@@ -211,9 +219,11 @@ extern int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	unsigned char *scratchbuf, const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done);
 
-extern int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
-	const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done);
+//extern int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
+//	const uint32_t *ptarget,
+//	uint32_t max_nonce, unsigned long *hashes_done);
+extern int scanhash_scrypt_jane(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done);
+
 struct thr_info {
 	int		id;
 	pthread_t	pth;
@@ -305,6 +315,28 @@ static inline void swab256(void *dest_p, const void *src_p)
 	dest[6] = swab32(src[1]);
 	dest[7] = swab32(src[0]);
 }
+
+static inline void flip32(void *dest_p, const void *src_p)
+{
+	uint32_t *dest = dest_p;
+	const uint32_t *src = src_p;
+	int i;
+
+	for (i = 0; i < 8; i++)
+		dest[i] = swab32(src[i]);
+}
+
+
+struct work {
+	uint32_t data[32];
+	uint32_t target[8];
+
+	unsigned char hash[32];
+
+	char job_id[128];
+	size_t xnonce2_len;
+	unsigned char xnonce2[32];
+};
 
 
 bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);

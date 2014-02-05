@@ -222,10 +222,16 @@ unsigned char GetNfactor(unsigned int nTimestamp) {
     return N;
 }
 
-int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
-	const uint32_t *ptarget,
-	uint32_t max_nonce, unsigned long *hashes_done)
+//int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
+//	const uint32_t *ptarget,
+//	uint32_t max_nonce, unsigned long *hashes_done)
+int scanhash_scrypt_jane(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done)
+
+//uint32_t *pdata, const uint32_t *ptarget, 
 {
+	uint32_t *pdata = work->data;
+	uint32_t *ptarget = work->target;
+	
 	uint32_t data[20], hash[8], target_swap[8];
 	volatile unsigned char *hashc = (unsigned char *) hash;
 	volatile unsigned char *datac = (unsigned char *) data;
@@ -276,21 +282,28 @@ int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
                        (unsigned char *)data, 80, 
                        N, (unsigned char *)hash, 32, X, Y, V.ptr);
 
-//		char t_hash[32];
-//		char t_temp[8];
-//		strcpy (t_hash,"");
-//		for (i =31 ; i >= 0; i--)
-//		{
-//			sprintf (t_temp,(unsigned char *)hashc[i]);
-//			strcat (t_hash,t_temp);
-//		}
-	
-		applog(LOG_NOTICE,"hash backwards: %s",t_hash);
 
-//		if (hashc[31] == 0 && hashc[30] == 0) {
+
+		if (hashc[31] == 0 && hashc[30] == 0) {
 //		force a check more often for testing
-		if (hashc[31] == 0) {
+//		if (hashc[31] == 0) {
 			if(fulltest(hash, ptarget)) {
+
+				uint32_t *ohash = (uint32_t *)(work->hash);
+				flip32(ohash, ohash);
+
+				for (i = 7; i >= 0; i--) {
+					applog (LOG_NOTICE,"hash[%d]:%zu  target[%d]:%zu",i,hash[i],i,ptarget[i]);
+				}
+
+//				for (i = 7; i >= 0; i--) {
+					applog (LOG_NOTICE,"ohash:%zu",ohash);
+					applog (LOG_NOTICE,"&ohash:%zu",&ohash);
+					applog (LOG_NOTICE,"*ohash:%zu",*ohash);
+					applog (LOG_NOTICE,"work->hash:%zu",work->hash);
+//				}
+
+
 				*hashes_done = n - pdata[19] + 1;
 				pdatac[76] = datac[79];
 				pdatac[77] = datac[78];
