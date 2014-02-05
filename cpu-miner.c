@@ -150,6 +150,7 @@ unsigned int found_blocks = 0;
 double prev_target_diff = 0;
 static char block_diff[8];
 double current_diff = 0xFFFFFFFFFFFFFFFFULL;
+bool need_set_blockdiff = false;
 static const uint64_t diffone = 0xFFFF000000000000ull;
 
 static char best_share[8] = "0";
@@ -703,7 +704,11 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	/* copy returned work into storage provided by caller */
 	memcpy(work, work_heap, sizeof(*work));
 
-	set_blockdiff(work);
+	if (need_set_blockdiff)
+	{
+		need_set_blockdiff = false;
+		set_blockdiff(work);
+	}
 
 	free(work_heap);
 
@@ -772,7 +777,12 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	work->data[20] = 0x80000000;
 	work->data[31] = 0x00000280;
 
-	set_blockdiff(work);
+	if (need_set_blockdiff)
+	{
+		need_set_blockdiff = false;
+		set_blockdiff(work);
+	}
+
 
 	pthread_mutex_unlock(&sctx->work_lock);
 
@@ -1009,6 +1019,7 @@ start:
 			soval = json_object_get(json_object_get(val, "result"), "submitold");
 			submit_old = soval ? json_is_true(soval) : false;
 			pthread_mutex_lock(&g_work_lock);
+			need_set_blockdiff = true;
 			if (work_decode(json_object_get(val, "result"), &g_work)) {
 				if (opt_debug)
 					applog(LOG_DEBUG, "DEBUG: got new work");
@@ -1115,6 +1126,7 @@ static void *stratum_thread(void *userdata)
 			time(&g_work_time);
 			pthread_mutex_unlock(&g_work_lock);
 			if (stratum.job.clean) {
+				need_set_blockdiff = true;
 				applog(LOG_INFO, "Stratum detected new block");
 				restart_threads();
 			}
