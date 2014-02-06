@@ -836,7 +836,7 @@ static void *miner_thread(void *userdata)
 		affine_to_cpu(thr_id, thr_id % num_processors);
 	}
 	
-	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT)
+	if (opt_algo == ALGO_SCRYPT||opt_algo == ALGO_SCRYPT_JANE)
 	{
 		scratchbuf = scrypt_buffer_alloc();
 	}
