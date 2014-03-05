@@ -40,7 +40,7 @@ Detailed Windows build instructions, using MinGW (32-bit):
 			cd /c/deps
 			tar -xvzf curl-7.30.0.tar.gz
 			cd curl-7.30.0
-			./configure �prefix=/c/mingw
+			./configure -prefix=/c/mingw
 			make
 			make install
 		* copy c:\deps\curl-7.30.0\docs\libcurl\libcurl.m4 c:\mingw\share\aclocal
@@ -74,7 +74,7 @@ Detailed Windows build instructions, using MinGW (64-bit):
 			cd /c/deps
 			tar -xvzf curl-7.30.0.tar.gz
 			cd curl-7.30.0
-			./configure --host=x86_64-w64-mingw32 �-prefix=/c/mingw64
+			./configure --host=x86_64-w64-mingw32 -prefix=/c/mingw64
 			make
 			make install
 			cp /c/deps/curl-7.30.0/docs/libcurl/libcurl.m4 /c/mingw/share/aclocal/libcurl.m4
