@@ -1,3 +1,9 @@
+Version 2.4.0 - Mar 8, 2014
+
+- Implementation of --nfmin, --nfmax, and --starttime to allow 
+ mining of coins other than YACoin
+- Clone some fixes implemented in pooler's main fork
+
 Version 2.3.1 - Jun 18, 2013
 
 - Add a --cert option for specifying an SSL certificate (martinwguy)
