@@ -187,41 +187,6 @@ scrypt_N_1_1(const uint8_t *password, size_t password_len, const uint8_t *salt, 
 }
 
 
-// yacoin: increasing Nfactor gradually
-const unsigned char minNfactor = 4;
-const unsigned char maxNfactor = 30;
-
-unsigned char GetNfactor(unsigned int nTimestamp) {
-    int l = 0;
-
-    if (nTimestamp <= 1367991200)
-        return 4;
-
-    unsigned long int s = nTimestamp - 1367991200;
-    while ((s >> 1) > 3) {
-      l += 1;
-      s >>= 1;
-    }
-
-    s &= 3;
-
-    int n = (l * 170 + s * 25 - 2320) / 100;
-
-    if (n < 0) n = 0;
-
-    if (n > 255)
-        printf("GetNfactor(%d) - something wrong(n == %d)\n", nTimestamp, n);
-
-    unsigned char N = (unsigned char)n;
-    //printf("GetNfactor: %d -> %d %d : %d / %d\n", nTimestamp - nChainStartTime, l, s, n, min(max(N, minNfactor), maxNfactor));
-
-//    return min(max(N, minNfactor), maxNfactor);
-
-    if(N<minNfactor) return minNfactor;
-    if(N>maxNfactor) return maxNfactor;
-    return N;
-}
-
 int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget,
 	uint32_t max_nonce, unsigned long *hashes_done)
@@ -255,7 +220,14 @@ int scanhash_scrypt_jane(int thr_id, uint32_t *pdata,
             datac[(z*4)+3] = pdatac[(z*4)  ];
         }
 
-	int Nfactor = GetNfactor(data[17]);
+	int Nfactor = GetNfactor(data[17], sc_minn, sc_maxn, sc_starttime);
+	
+	if (Nfactor != sc_currentn) {
+		sc_currentn = Nfactor;
+		applog(LOG_NOTICE, "Scrypt-Chacha NFactor set to %d", Nfactor);
+
+	}
+
 	if (Nfactor > scrypt_maxN) {
 		scrypt_fatal_error("scrypt: N out of range");
 	}

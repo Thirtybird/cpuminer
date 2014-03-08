@@ -233,6 +233,7 @@ extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
 extern void diff_to_target(uint32_t *target, double diff);
+extern unsigned char GetNfactor(unsigned int nTimestamp, int minn, int maxn, long starttime);
 
 struct stratum_job {
 	char *job_id;
@@ -303,5 +304,18 @@ extern bool tq_push(struct thread_q *tq, void *data);
 extern void *tq_pop(struct thread_q *tq, const struct timespec *abstime);
 extern void tq_freeze(struct thread_q *tq);
 extern void tq_thaw(struct thread_q *tq);
+
+extern int sc_minn;
+extern int sc_maxn;
+extern long sc_starttime;
+extern int sc_currentn;
+
+
+#define MIN_NFACTOR 4
+#define MIN_NFACTOR_STR "4"
+#define MAX_NFACTOR 40
+#define MAX_NFACTOR_STR "40"
+#define MAX_STARTTIME 2147483647
+#define MAX_STARTTIME_STR "2147483647"
 
 #endif /* __MINER_H__ */

@@ -6,40 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Constants for YACoin's NFactor
-const unsigned char minNfactor = 4;
-const unsigned char maxNfactor = 30;
-
-unsigned char GetNfactor(unsigned int nTimestamp) {
-    int l = 0;
-
-    if (nTimestamp <= 1367991200)
-        return 4;
-
-    unsigned long int s = nTimestamp - 1367991200;
-    while ((s >> 1) > 3) {
-      l += 1;
-      s >>= 1;
-    }
-
-    s &= 3;
-
-    int n = (l * 170 + s * 25 - 2320) / 100;
-
-    if (n < 0) n = 0;
-
-    if (n > 255)
-        printf("GetNfactor(%d) - something wrong(n == %d)\n", nTimestamp, n);
-
-    unsigned char N = (unsigned char)n;
-    //printf("GetNfactor: %d -> %d %d : %d / %d\n", nTimestamp - nChainStartTime, l, s, n, min(max(N, minNfa$
-
-//    return min(max(N, minNfactor), maxNfactor);
-
-    if(N<minNfactor) return minNfactor;
-    if(N>maxNfactor) return maxNfactor;
-    return N;
-}
 
 int scanhash_yacoin(int thr_id, uint32_t *pdata,
         const uint32_t *ptarget,

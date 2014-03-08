@@ -109,7 +109,7 @@ enum sha256_algos {
 
 static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
-	[ALGO_SCRYPT_JANE]	= "scrypt-jane",
+	[ALGO_SCRYPT_JANE]	= "scrypt-chacha",
 	[ALGO_SHA256D]		= "sha256d",
 };
 
@@ -156,6 +156,11 @@ static const uint64_t diffone = 0xFFFF000000000000ull;
 static char best_share[8] = "0";
 uint64_t best_diff = 0;
 
+// variables for Scrypt-Chacha NFactor - default to YACoin
+int sc_minn = 4;
+int sc_maxn = 30;
+long sc_starttime = 1367991200;
+int sc_currentn = 0;
 
 pthread_mutex_t applog_lock;
 pthread_mutex_t stats_lock;
@@ -180,7 +185,7 @@ Usage: " PROGRAM_NAME " [OPTIONS]\n\
 Options:\n\
   -a, --algo=ALGO       specify the algorithm to use\n\
                           scrypt       scrypt(1024, 1, 1) (default)\n\
-                          scrypt-jane  scrypt-jane\n\
+                          scrypt-chacha  scrypt-chacha - a.k.a. scrypt-jane\n\
                           sha256d      SHA-256d\n\
   -o, --url=URL         URL of mining server (default: " DEF_RPC_URL ")\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
@@ -189,6 +194,9 @@ Options:\n\
       --cert=FILE       certificate for mining server using SSL\n\
   -x, --proxy=[PROTOCOL://]HOST[:PORT]  connect through a proxy\n\
   -t, --threads=N       number of miner threads (default: number of processors)\n\
+      --nfmin=N         Minimum NFactor for scrypt-chacha mining\n\
+      --nfmax=N         Maximum NFactor for scrypt-chacha mining\n\
+      --starttime=N     Start time for NFactor for scrypt-chacha mining\n\
   -r, --retries=N       number of times to retry if a network call fails\n\
                           (default: retry indefinitely)\n\
   -R, --retry-pause=N   time to pause between retries, in seconds (default: 30)\n\
@@ -234,6 +242,8 @@ static struct option const options[] = {
 	{ "config", 1, NULL, 'c' },
 	{ "debug", 0, NULL, 'D' },
 	{ "help", 0, NULL, 'h' },
+	{ "nfmin", 1, NULL, 1009 },
+	{ "nfmax", 1, NULL, 1011 },
 	{ "no-longpoll", 0, NULL, 1003 },
 	{ "no-stratum", 0, NULL, 1007 },
 	{ "pass", 1, NULL, 'p' },
@@ -243,6 +253,7 @@ static struct option const options[] = {
 	{ "retries", 1, NULL, 'r' },
 	{ "retry-pause", 1, NULL, 'R' },
 	{ "scantime", 1, NULL, 's' },
+	{ "starttime", 1, NULL, 1013 },
 #ifdef HAVE_SYSLOG_H
 	{ "syslog", 0, NULL, 'S' },
 #endif
@@ -1170,9 +1181,12 @@ static void parse_arg (int key, char *arg)
 {
 	char *p;
 	int v, i;
+	long l;
 
 	switch(key) {
 	case 'a':
+		if (strcmp(arg,"scrypt-jane") == 0)
+			arg = "scrypt-chacha";
 		for (i = 0; i < ARRAY_SIZE(algo_names); i++) {
 			if (algo_names[i] &&
 			    !strcmp(arg, algo_names[i])) {
@@ -1332,6 +1346,24 @@ static void parse_arg (int key, char *arg)
 	case 1007:
 		want_stratum = false;
 		break;
+	case 1009: //nfmin
+		v = atoi(arg);
+		if (v < MIN_NFACTOR || v > MAX_NFACTOR)
+			show_usage_and_exit(1);
+		sc_minn = v;
+		break;
+	case 1011: //nfmax
+		v = atoi(arg);
+		if (v < MIN_NFACTOR || v > MAX_NFACTOR)
+			show_usage_and_exit(1);
+		sc_maxn = v;
+		break;
+	case 1013: //starttime
+		l = atol(arg);
+		if (l < 1 || l > MAX_STARTTIME)
+			show_usage_and_exit(1);
+		sc_starttime = l;
+		break;
 	case 'S':
 		use_syslog = true;
 		break;
@@ -1418,6 +1450,37 @@ void signal_handler(int sig)
 	}
 }
 #endif
+
+unsigned char GetNfactor(unsigned int nTimestamp, int minn, int maxn, long starttime) {
+    int l = 0;
+
+    if (nTimestamp <= starttime)
+        return minn;
+
+    unsigned long int s = nTimestamp - starttime;
+    while ((s >> 1) > 3) {
+      l += 1;
+      s >>= 1;
+    }
+
+    s &= 3;
+
+    int n = (l * 170 + s * 25 - 2320) / 100;
+
+    if (n < 0) n = 0;
+
+    if (n > 255)
+        printf("GetNfactor(%d) - something wrong(n == %d)\n", nTimestamp, n);
+
+    unsigned char N = (unsigned char)n;
+    //printf("GetNfactor: %d -> %d %d : %d / %d\n", nTimestamp - nChainStartTime, l, s, n, min(max(N, minNfactor), maxNfactor));
+
+//    return min(max(N, minNfactor), maxNfactor);
+
+    if(N<minn) return minn;
+    if(N>maxn) return maxn;
+    return N;
+}
 
 int main(int argc, char *argv[])
 {
